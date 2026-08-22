@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoAntenas D.I.D.EC.</title>
+  <meta name="description" content="Herramienta forense para cálculo geodésico de cobertura de antenas, visualización en tiempo real y exportación KML/PNG.">
+  
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <!-- html2canvas para exportación de mapa a PNG -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!-- Estilos Personalizados -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header principal -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fa-solid fa-tower-cell"></i>
+        </div>
+        <div class="brand-text">
+          <h1>GeoAntenas <span>D.I.D.EC.</span></h1>
+          <p class="tagline">Análisis Geodésico de Telecomunicaciones & Cobertura Multicelda</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <button type="button" class="badge badge-guide" id="btnOpenGuide" title="Ver instructivo de uso rápido">
+          <i class="fa-solid fa-circle-question"></i> Guía / Instructivo
+        </button>
+        <button type="button" class="badge badge-info" id="btnInfoDisclaimer" title="Ver información técnica y autoría">
+          <i class="fa-solid fa-circle-info"></i> Info Técnica / Autoría
+        </button>
+        <span class="badge badge-free"><i class="fa-solid fa-code-branch"></i> v1.0-alpha</span>
+         <!-- 
+        <span class="badge badge-secure"><i class="fa-solid fa-shield-halved"></i> Nahuel A. Zelaya</span>
+        -->
+      </div>
+    </header>
+
+    <!-- Layout de Contenido: Panel de Control + Mapa -->
+    <main class="app-main">
+      <!-- Panel de Control Lateral -->
+      <aside class="control-panel">
+        
+        <!-- Tarjeta de Entrada de Datos de Antena -->
+        <section class="card form-card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-circle-plus"></i> Cargar Sector de Antena</h2>
+            <span class="step-indicator">Paso 1</span>
+          </div>
+
+          <form id="sectorForm">
+            <!-- Nombre/ID de Celda -->
+            <div class="form-group">
+              <label for="inputNombre"><i class="fa-solid fa-tag"></i> Nombre / ID de la Antena</label>
+              <input type="text" id="inputNombre" placeholder="Ej: Torre Centro - Sector A" autocomplete="off">
+            </div>
+
+            <!-- Latitud y Longitud -->
+            <div class="form-row">
+              <div class="form-group">
+                <label for="inputLat"><i class="fa-solid fa-location-dot"></i> Latitud</label>
+                <input type="number" id="inputLat" step="any" placeholder="-34.6037" required>
+              </div>
+              <div class="form-group">
+                <label for="inputLon"><i class="fa-solid fa-location-dot"></i> Longitud</label>
+                <input type="number" id="inputLon" step="any" placeholder="-58.3816" required>
+              </div>
+            </div>
+
+            <div class="map-picker-hint">
+              <button type="button" id="btnPickMap" class="btn-subtle">
+                <i class="fa-solid fa-crosshairs"></i> Capturar coordenadas haciendo clic en el mapa
+              </button>
+            </div>
+
+            <!-- Azimuth, Apertura, Radio con Sliders de Rango -->
+            <div class="form-group">
+              <div class="label-with-val">
+                <label for="inputAzimuth"><i class="fa-solid fa-compass"></i> Azimuth (°)</label>
+              </div>
+              <div class="slider-input-group">
+                <input type="number" id="inputAzimuth" step="any" min="0" max="360" placeholder="90">
+                <input type="range" id="rangeAzimuth" min="0" max="360" value="90">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="inputApertura"><i class="fa-solid fa-pie-chart"></i> Apertura (°)</label>
+                <input type="number" id="inputApertura" step="any" min="1" max="360" placeholder="65">
+                <input type="range" id="rangeApertura" min="1" max="360" value="65" class="slider-mini">
+              </div>
+              <div class="form-group">
+                <label for="inputRadio"><i class="fa-solid fa-ruler-horizontal"></i> Radio (m)</label>
+                <input type="number" id="inputRadio" step="any" min="1" placeholder="500">
+                <input type="range" id="rangeRadio" min="50" max="5000" step="50" value="500" class="slider-mini">
+              </div>
+            </div>
+
+            <!-- Selección de Color del Sector -->
+            <div class="form-group">
+              <label><i class="fa-solid fa-palette"></i> Color del Sector</label>
+              <div class="color-presets">
+                <button type="button" class="color-btn active" style="background:#ff3366;" data-color="#ff3366"></button>
+                <button type="button" class="color-btn" style="background:#00f2fe;" data-color="#00f2fe"></button>
+                <button type="button" class="color-btn" style="background:#00e676;" data-color="#00e676"></button>
+                <button type="button" class="color-btn" style="background:#ffab00;" data-color="#ffab00"></button>
+                <button type="button" class="color-btn" style="background:#d500f9;" data-color="#d500f9"></button>
+                <button type="button" class="color-btn" style="background:#ffea00;" data-color="#ffea00"></button>
+                <input type="color" id="inputColor" value="#ff3366" class="color-picker-input">
+              </div>
+            </div>
+
+            <!-- Botones de Acción: Individual o Tri-Sectorial 360° -->
+            <div class="form-actions-dual">
+              <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-plus"></i> +1 Sector
+              </button>
+              <button type="button" id="btnTriSector" class="btn btn-amber" title="Cargar 3 sectores estándar (0°, 120°, 240°)">
+                <i class="fa-solid fa-bolt"></i> ⚡ Torre 3 Celdas 360°
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Tarjeta de Puntos de Impacto / Llamadas (CDRs) -->
+        <section class="card impact-card">
+          <div class="card-header">
+            <h2>
+              <i class="fa-solid fa-location-crosshairs text-red"></i> Puntos de Impacto / Llamadas
+              <span class="count-pill" id="impactCounter">0</span>
+            </h2>
+          </div>
+
+          <form id="formImpact" class="form-impact-mini">
+            <div class="form-row">
+              <input type="text" id="impactNombre" placeholder="Sospechoso / Celda Afectada" required>
+              <input type="text" id="impactTime" placeholder="22/08 14:30">
+            </div>
+            <div class="form-row">
+              <input type="number" id="impactLat" step="any" placeholder="Latitud" required>
+              <input type="number" id="impactLon" step="any" placeholder="Longitud" required>
+            </div>
+            <button type="button" id="btnPickImpactMap" class="btn-subtle btn-subtle-red">
+              <i class="fa-solid fa-crosshairs"></i> Capturar punto de impacto en el mapa
+            </button>
+            <div class="form-row">
+              <input type="text" id="impactNotas" placeholder="Notas periciales adicionales...">
+              <button type="submit" class="btn btn-secondary btn-sm"><i class="fa-solid fa-plus"></i> Agregar</button>
+            </div>
+          </form>
+
+          <div class="impacts-list" id="impactList"></div>
+        </section>
+
+        <!-- Tarjeta de Gestión de Lista de Sectores -->
+        <section class="card list-card">
+          <div class="card-header">
+            <h2>
+              <i class="fa-solid fa-list-check"></i> Sectores Guardados
+              <span class="count-pill" id="sectorCounter">0</span>
+            </h2>
+            <div class="header-actions">
+              <button type="button" class="btn-icon" title="Importar CSV" onclick="document.getElementById('fileCsv').click()">
+                <i class="fa-solid fa-file-import"></i>
+              </button>
+              <input type="file" id="fileCsv" accept=".csv" style="display:none">
+              <button type="button" class="btn-icon btn-danger-icon" title="Limpiar todo" onclick="confirmarLimpiarLista()">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Contenedor scrollable de la lista -->
+          <div class="sectors-list-wrapper" id="sectorsListWrapper">
+            <div class="empty-state" id="emptyState">
+              <i class="fa-solid fa-map-location-dot"></i>
+              <p>No hay sectores agregados aún.</p>
+              <span>Ingresa los datos arriba o haz clic en el mapa para comenzar.</span>
+            </div>
+            <div class="sectors-list" id="sectorsList"></div>
+          </div>
+
+          <!-- Footer con Botones de Exportación KML y PNG -->
+          <div class="card-footer card-footer-dual">
+            <button type="button" class="btn btn-success btn-lg" id="btnExportKml" disabled title="Descargar KML para Google Earth">
+              <i class="fa-solid fa-file-code"></i> 💾 Generar KML
+            </button>
+            <button type="button" class="btn btn-primary btn-lg" id="btnExportPngSide" disabled title="Capturar imagen PNG del mapa para informe">
+              <i class="fa-solid fa-camera"></i> 📸 Capturar PNG
+            </button>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Área Principal del Mapa GIS -->
+      <section class="map-area">
+        <!-- Barra de herramientas flotante sobre el mapa -->
+        <div class="map-toolbar">
+          <div class="map-toolbar-left">
+            <div class="map-layer-selector">
+              <button class="map-layer-btn active" data-tile="osm">
+                <i class="fa-solid fa-map"></i> Calles
+              </button>
+              <button class="map-layer-btn" data-tile="satellite">
+                <i class="fa-solid fa-earth-americas"></i> Satélite (Esri)
+              </button>
+              <button class="map-layer-btn" data-tile="dark">
+                <i class="fa-solid fa-moon"></i> Oscuro
+              </button>
+            </div>
+
+            <!-- Buscador de Direcciones Nominatim -->
+            <form id="formSearchAddress" class="search-address-form">
+              <input type="text" id="inputSearchAddress" placeholder="🔍 Buscar dirección o lugar..." autocomplete="off">
+              <button type="submit" title="Buscar dirección"><i class="fa-solid fa-magnifying-glass"></i></button>
+              <button type="button" id="btnClearSearch" title="Quitar marca de búsqueda" class="btn-clear-search"><i class="fa-solid fa-xmark"></i></button>
+            </form>
+          </div>
+
+          <!-- Filtros de Visibilidad & Captura PNG -->
+          <div class="map-quick-tools">
+            <button class="map-tool-btn active" id="btnToggleSectores" title="Mostrar/Ocultar celdas">
+              <i class="fa-solid fa-tower-cell"></i> Antenas
+            </button>
+            <button class="map-tool-btn active" id="btnToggleImpactos" title="Mostrar/Ocultar llamadas">
+              <i class="fa-solid fa-phone"></i> Llamadas
+            </button>
+            <button class="map-tool-btn active-png" id="btnExportPng" title="Exportar imagen del mapa para informe">
+              <i class="fa-solid fa-camera"></i> Capturar PNG
+            </button>
+            <button class="map-tool-btn" title="Centrar todo" onclick="centrarTodosLosSectores()">
+              <i class="fa-solid fa-expand"></i>
+            </button>
+            <button class="map-tool-btn" title="Cargar Ejemplo" onclick="cargarEjemploDemostracion()">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Indicador de modo captura de coordenadas -->
+        <div class="map-picker-banner" id="pickerBanner">
+          <span><i class="fa-solid fa-hand-pointer"></i> Haz clic en cualquier lugar del mapa para fijar Latitud y Longitud</span>
+          <button><i class="fa-solid fa-xmark"></i> Cancelar</button>
+        </div>
+
+        <!-- Div para Leaflet Map -->
+        <div id="map"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal Confirmación Limpieza -->
+  <dialog id="modalConfirm" class="custom-dialog">
+    <div class="dialog-content">
+      <i class="fa-solid fa-triangle-exclamation dialog-icon"></i>
+      <h3>¿Borrar todos los sectores e impactos?</h3>
+      <p>Esta acción eliminará todos los sectores y puntos de impacto de la sesión actual.</p>
+      <div class="dialog-actions">
+        <button class="btn btn-secondary" onclick="document.getElementById('modalConfirm').close()">Cancelar</button>
+        <button class="btn btn-danger" onclick="ejecutarLimpiarLista()">Sí, Borrar Todo</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Modal Información Técnica / Autoría D.I.D.EC. -->
+  <dialog id="modalDisclaimer" class="custom-dialog disclaimer-dialog">
+    <div class="dialog-content disclaimer-content">
+      <div class="disclaimer-header">
+        <i class="fa-solid fa-compass-drafting disclaimer-icon"></i>
+        <div>
+          <h3>Información Técnica y Recomendaciones de Uso</h3>
+          <span class="sub-badge">GeoAntenas D.I.D.EC. — Asistente de Investigación</span>
+        </div>
+      </div>
+      <div class="disclaimer-body">
+        <p>Bienvenido a <strong>GeoAntenas D.I.D.EC.</strong> Esta herramienta fue desarrollada con el propósito de asistir y agilizar la labor diaria de los investigadores en el análisis geodésico y trazado de celdas de telecomunicaciones.</p>
+        
+        <ul class="disclaimer-list">
+          <li><i class="fa-solid fa-circle-check"></i> <strong>Modelación Matemática Geodésica:</strong> Los sectores y vectores dibujados corresponden a modelos geométricos calculados sobre la superficie terrestre (fórmulas Vincenty/Haversine).</li>
+          <li><i class="fa-solid fa-mountain-sun"></i> <strong>Factores del Terreno:</strong> La cobertura real en campo puede presentar variaciones según la topografía, edificaciones, potencia, frecuencia e inclinación física de las antenas (downtilt).</li>
+          <li><i class="fa-solid fa-scale-balanced"></i> <strong>Soporte Pericial:</strong> El sistema actúa como un complemento gráfico intuitivo para potenciar el análisis de registros telefónicos oficiales.</li>
+        </ul>
+
+        <div class="disclaimer-author">
+          <i class="fa-solid fa-id-card"></i>
+          <div>
+            <strong>Diseñado y Desarrollado por:</strong> Nahuel A. Zelaya<br>
+            <span>Dirección de Investigaciones de Delitos Económicos (D.I.D.EC.)</span>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="btnAceptarDisclaimer" class="btn btn-primary btn-block btn-lg">
+          <i class="fa-solid fa-circle-check"></i> Comprendido, Ingresar a la App
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Modal Guía / Instructivo de Uso Rápido -->
+  <dialog id="modalGuide" class="custom-dialog guide-dialog">
+    <div class="dialog-content guide-content">
+      <div class="guide-header">
+        <i class="fa-solid fa-book-bookmark guide-icon"></i>
+        <div>
+          <h3>Guía de Uso Rápido - D.I.D.EC.</h3>
+          <span class="sub-badge">Instructivo para Investigadores</span>
+        </div>
+      </div>
+      <div class="guide-body">
+        <div class="guide-step">
+          <div class="step-num">1</div>
+          <div class="step-desc">
+            <h4>Cargar Antenas y Celdas</h4>
+            <p>Ingresa Latitud, Longitud, Azimuth (rumbo) y Radio. Puedes hacer clic en <strong>"Capturar coordenadas"</strong> para marcar directamente en el mapa, o usar <strong>"⚡ Torre 3 Celdas"</strong> para cargar 360° en 1 clic.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-num">2</div>
+          <div class="step-desc">
+            <h4>Cargar Puntos de Impacto / Llamadas</h4>
+            <p>En el panel de <strong>Puntos de Impacto</strong>, ingresa las coordenadas de la llamada del sospechoso o víctima para corroborar visualmente si caen dentro del haz de la celda.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-num">3</div>
+          <div class="step-desc">
+            <h4>Exportar Informes KML o PNG</h4>
+            <p>Descarga el archivo <strong>.KML</strong> para abrir en Google Earth Pro, o presiona <strong>📸 PNG</strong> en el mapa para capturar la imagen del expediente pericial.</p>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="btnCloseGuide" class="btn btn-primary btn-block">
+          <i class="fa-solid fa-circle-check"></i> ¡Entendido, Empezar!
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- App Entry Point Módulo ES6 -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
